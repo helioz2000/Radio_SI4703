@@ -44,7 +44,7 @@
 
 #include <Wire.h>
 #include <EEPROM.h>
-
+#include "Encoder.h"
 
 int STATUS_LED = LED_BUILTIN;
 int resetPin = 2;
@@ -116,14 +116,16 @@ unsigned long storage_time = 0;
 #define STEREO  8
 
 #define STARTUP_VOLUME 0x0007
-
+#define VOLUME_MIN 0
+#define VOLUME_MAX 15
 
 void setup() {
   Serial.begin(9600);
   Serial.println();
 
   current_frequency = 1065;
-  frequency_retrieve();        
+  frequency_retrieve();
+  beginEncoder();        
   pinMode(STATUS_LED, OUTPUT);
 
   si4703_init(); //Init the Si4703 - we need to toggle SDIO before Wire.begin takes over.
@@ -206,7 +208,13 @@ void loop() {
     Serial.println("s) Tune down");
     Serial.print(": ");
 
-    while (!Serial.available());
+    while (!Serial.available()) {
+      updateEncoders(&encoder_delta);   // has the frequency tuning knob been adjusted?
+        if (encoder_delta != 0) {
+          adjustVolume(encoder_delta);
+      }
+    }
+    
     option = Serial.read();
 
     if(option == '1')  {
@@ -471,6 +479,19 @@ int readChannel(void) {
 
   channel += 875; //98 + 875 = 973
   return(channel);
+}
+
+void adjustVolume(int adjustValue) {
+  si4703_readRegisters(); //Read the current register set
+  int current_volume = (int)si4703_registers[SYSCONFIG2] & 0x000F; //Read the current volume level
+  int new_volume = current_volume + adjustValue;
+  if (new_volume > VOLUME_MIN && new_volume < VOLUME_MAX) {
+    si4703_registers[SYSCONFIG2] &= 0xFFF0; //Clear volume bits
+    si4703_registers[SYSCONFIG2] |= (byte)new_volume; //Set new volume
+    si4703_updateRegisters(); //Update
+  }
+  Serial.print("Volume: ");
+  Serial.println(new_volume, DEC);
 }
 
 //Seeks out the next available station
