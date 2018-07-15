@@ -45,6 +45,11 @@
 #include <Wire.h>
 #include <EEPROM.h>
 #include "Encoder.h"
+#include <Arduino.h>
+
+// OLED
+#include <U8x8lib.h>
+U8X8_SSD1306_128X32_UNIVISION_HW_I2C u8x8(/* clock=*/ 21, /* data=*/ 20);
 
 int STATUS_LED = LED_BUILTIN;
 int resetPin = 2;
@@ -115,7 +120,7 @@ unsigned long storage_time = 0;
 #define RDSS  11
 #define STEREO  8
 
-#define STARTUP_VOLUME 0x0007
+#define STARTUP_VOLUME 0x000F
 #define VOLUME_MIN 0
 #define VOLUME_MAX 15
 
@@ -129,6 +134,27 @@ void setup() {
   pinMode(STATUS_LED, OUTPUT);
 
   si4703_init(); //Init the Si4703 - we need to toggle SDIO before Wire.begin takes over.
+
+  setup_oled();
+}
+
+void setup_oled() {
+  
+  u8x8.begin(); /* u8x8.begin() is required and will sent the setup/init sequence to the display */
+  //u8x8.setFont(u8x8_font_chroma48medium8_r);
+  u8x8.setFont( u8x8_font_victoriabold8_r );
+  sprintf(printBuffer, "%02d.%01d", current_frequency / 10, current_frequency % 10);
+  u8x8.draw2x2String(1,1,printBuffer);
+
+  //u8x8.drawString(0,1,"1: Hello World");
+  //u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
+  //u8x8.setFont(u8x8_font_5x7_r);
+  //u8x8.setFont(u8x8_font_5x8_r);
+  //u8x8.setFont( u8x8_font_artossans8_r );
+  //u8x8.setFont( u8x8_font_victoriabold8_r );
+  //u8x8.setFont( u8x8_font_pressstart2p_r );
+  //u8x8.drawString(0,2,"2: Hello World");
+  //u8x8.setInverseFont(1);
 }
 
 void frequency_retrieve() {
@@ -419,6 +445,10 @@ void loop() {
 //It's left to the user to limit these if necessary
 //Actually, during testing the Si4703 seems to be internally limiting it at 87.5. Neat.
 void gotoChannel(int newChannel){
+
+  sprintf(printBuffer, "%02d.%01d", current_frequency / 10, current_frequency % 10);
+  u8x8.draw2x2String(1,1,printBuffer);
+  
   //Freq(MHz) = 0.200(in USA) * Channel + 87.5MHz
   //97.3 = 0.2 * Chan + 87.5
   //9.8 / 0.2 = 49
@@ -459,6 +489,7 @@ void gotoChannel(int newChannel){
     if( (si4703_registers[STATUSRSSI] & (1<<STC)) == 0) break; //Tuning complete!
   }
 //  Serial.println("Done");
+  //u8x8.draw2x2String(3,1,current_frequency);
 }
 
 //Reads the current channel from READCHAN
